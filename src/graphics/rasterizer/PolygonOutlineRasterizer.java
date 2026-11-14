@@ -35,4 +35,8 @@ public final class PolygonOutlineRasterizer implements PolygonRasterizer {
         }
     }
 
+    public void rasterizeLinesOnly(Polygon polygon) {
+        rasterizeLines(polygon.getLines());
+    }
+
 }

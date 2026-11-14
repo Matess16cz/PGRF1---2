@@ -40,7 +40,7 @@ public class Controller {
 
     private Line previewLine;
     private final Polygon polygon;
-    private final PolygonRasterizer polygonRasterizer;
+    private final PolygonOutlineRasterizer polygonRasterizer;
     private final Polygon clippingPolygon;
     private final Polygon clippingRectangle;
     private final PolygonClipper polygonClipper;
@@ -253,7 +253,7 @@ public class Controller {
                 }
             }
 
-            polygonRasterizer.rasterize(clippedLines, null);
+            polygonRasterizer.rasterizeLinesOnly(clippedLines);
 
         } else if (clippingMode) {
             Polygon clippedPolygon = polygonClipper.clip(polygon, clippingPolygon);
