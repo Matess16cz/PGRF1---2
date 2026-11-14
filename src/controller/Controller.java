@@ -1,5 +1,7 @@
 package controller;
 
+import graphics.clipping.PolygonClipper;
+import graphics.clipping.SutherlandHodgmanClipper;
 import graphics.filler.ScanlineFiller;
 import graphics.filler.RecursiveSeedFiller;
 import graphics.filler.SeedFiller;
@@ -23,6 +25,7 @@ import javax.swing.AbstractAction;
 import static java.awt.event.KeyEvent.VK_B;
 import static java.awt.event.KeyEvent.VK_C;
 import static java.awt.event.KeyEvent.VK_S;
+import static java.awt.event.KeyEvent.VK_P;
 import static javax.swing.JComponent.WHEN_IN_FOCUSED_WINDOW;
 import static javax.swing.KeyStroke.getKeyStroke;
 
@@ -34,6 +37,9 @@ public class Controller {
     private Line previewLine;
     private final Polygon polygon;
     private final PolygonRasterizer polygonRasterizer;
+    private final Polygon clippingPolygon;
+    private final PolygonClipper polygonClipper;
+    private boolean clippingMode = false;
 
     private Point seedFillPoint;
     private boolean seedFillMode;
@@ -50,6 +56,18 @@ public class Controller {
         this.canvas = canvas;
         this.toolbar = toolbar;
         this.polygon = new Polygon();
+        this.clippingPolygon = new Polygon();
+        this.polygonClipper = new SutherlandHodgmanClipper();
+        Point p1 = new Point(250, 150);
+        Point p2 = new Point(450, 150);
+        Point p3 = new Point(550, 300);
+        Point p4 = new Point(350, 450);
+        Point p5 = new Point(150, 300);
+        clippingPolygon.addLine(new Line(p1, p2, LINE_COLOR));
+        clippingPolygon.addLine(new Line(p2, p3, LINE_COLOR));
+        clippingPolygon.addLine(new Line(p3, p4, LINE_COLOR));
+        clippingPolygon.addLine(new Line(p4, p5, LINE_COLOR));
+        clippingPolygon.addLine(new Line(p5, p1, LINE_COLOR));
 
         this.scanlineFiller = new ScanlineFiller(canvas.getRaster());
         this.seedFiller = new RecursiveSeedFiller(canvas.getRaster());
@@ -79,6 +97,21 @@ public class Controller {
 
         canvas.getInputMap(WHEN_IN_FOCUSED_WINDOW)
                 .put(getKeyStroke(VK_S, 0), "toggleScanlineFill");
+
+        canvas.getInputMap(WHEN_IN_FOCUSED_WINDOW)
+                .put(getKeyStroke(VK_P, 0), "toggleClipping");
+
+        canvas.getActionMap().put("toggleClipping", new AbstractAction() {
+            @Override
+            public void actionPerformed(ActionEvent event) {
+                clippingMode = !clippingMode;
+
+                System.out.println("Ořezávání polygonu: " +
+                        (clippingMode ? "Zapnuto" : "Vypnuto"));
+
+                render();
+            }
+        });
 
         canvas.getActionMap().put("toggleScanlineFill", new AbstractAction() {
             @Override
@@ -133,7 +166,15 @@ public class Controller {
             scanlineFiller.fill(polygon, FILL_COLOR);
         }
 
-        polygonRasterizer.rasterize(polygon, previewLine);
+        if (clippingMode) {
+            Polygon clippedPolygon = polygonClipper.clip(polygon, clippingPolygon);
+            polygonRasterizer.rasterize(clippedPolygon, null);
+        } else {
+            polygonRasterizer.rasterize(polygon, previewLine);
+        }
+
+        polygonRasterizer.rasterize(clippingPolygon, null);
+
         if (seedFillPoint != null) {
             if (boundaryFillMode) {
                 seedFiller.fillBoundary(seedFillPoint.getX(), seedFillPoint.getY(), LINE_COLOR, FILL_COLOR);
@@ -151,6 +192,7 @@ public class Controller {
         seedFillMode = false;
         boundaryFillMode = false;
         scanlineFillMode = false;
+        clippingMode = false;
         toolbar.setSeedFillMode(false);
         render();
     }
