@@ -5,9 +5,9 @@ import model.Line;
 
 public class TrivialLineRasterizer implements LineRasterizer {
 
-    private final Raster<Integer> raster;
+    private final Raster raster;
 
-    public TrivialLineRasterizer(Raster<Integer> raster) {
+    public TrivialLineRasterizer(Raster raster) {
         this.raster = raster;
     }
 

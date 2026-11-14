@@ -81,7 +81,7 @@ public class Controller {
                     return;
                 }
 
-                polygon.addLine(new Line(previewLine.getPoint1(), getPoint(event), LINE_COLOR));
+                polygon.addLine(new Line(previewLine.getPoint1(), getEndPoint(event), LINE_COLOR));
                 previewLine = null;
                 render();
             }
@@ -91,7 +91,7 @@ public class Controller {
             @Override
             public void mouseDragged(MouseEvent event) {
                 if (previewLine != null) {
-                    previewLine = new Line(previewLine.getPoint1(), getPoint(event), PREVIEW_COLOR);
+                    previewLine = new Line(previewLine.getPoint1(), getEndPoint(event), PREVIEW_COLOR);
                     render();
                 }
             }
@@ -139,7 +139,49 @@ public class Controller {
     }
 
     private Point getPoint(MouseEvent event) {
+
         return new Point(event.getX(), event.getY());
+    }
+
+    private Point getEndPoint(MouseEvent event) {
+        Point cursor =  getPoint(event);
+
+        if(!event.isShiftDown() || previewLine == null) {
+            return cursor;
+        }
+
+        return alignPoint(previewLine.getPoint1(), cursor);
+    }
+    private Point alignPoint(Point start, Point cursor) {
+        int x1 = start.getX(), y1 = start.getY();
+        int dx = cursor.getX() - x1, dy = cursor.getY() - y1;
+
+        int diag = (dx + dy) / 2;
+        int anti = (dx - dy) / 2;
+
+        Point[] candidates = {
+                new Point(x1 + dx, y1),
+                new Point(x1, y1 + dy),
+                new Point(x1 + diag, y1 + diag),
+                new Point(x1 + anti, y1 - anti)
+        };
+
+        Point best = candidates[0];
+        long bestDist = Long.MAX_VALUE;
+
+        for (Point c : candidates) {
+            long ddx = c.getX() - cursor.getX();
+            long ddy = c.getY() - cursor.getY();
+
+            long dist = ddx * ddx + ddy * ddy;
+
+            if (dist < bestDist) {
+                bestDist = dist;
+                best = c;
+            }
+        }
+
+        return best;
     }
 
     private void startLine(MouseEvent event) {
