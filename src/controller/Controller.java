@@ -1,5 +1,7 @@
 package controller;
 
+import graphics.clipping.LineClipper;
+import graphics.clipping.CohenSutherlandClipper;
 import graphics.clipping.PolygonClipper;
 import graphics.clipping.SutherlandHodgmanClipper;
 import graphics.filler.ScanlineFiller;
@@ -26,6 +28,7 @@ import static java.awt.event.KeyEvent.VK_B;
 import static java.awt.event.KeyEvent.VK_C;
 import static java.awt.event.KeyEvent.VK_S;
 import static java.awt.event.KeyEvent.VK_P;
+import static java.awt.event.KeyEvent.VK_L;
 import static javax.swing.JComponent.WHEN_IN_FOCUSED_WINDOW;
 import static javax.swing.KeyStroke.getKeyStroke;
 
@@ -38,31 +41,53 @@ public class Controller {
     private final Polygon polygon;
     private final PolygonRasterizer polygonRasterizer;
     private final Polygon clippingPolygon;
+    private final Polygon clippingRectangle;
     private final PolygonClipper polygonClipper;
-    private boolean clippingMode = false;
+    private final LineClipper lineClipper;
+    private final SeedFiller seedFiller;
+    private final ScanlineFiller scanlineFiller;
 
     private Point seedFillPoint;
     private boolean seedFillMode;
     private boolean boundaryFillMode = false;
     private boolean scanlineFillMode = false;
-    private final SeedFiller seedFiller;
-    private final ScanlineFiller scanlineFiller;
+    private boolean clippingMode = false;
+    private boolean lineClippingMode = false;
+
 
     private static final int LINE_COLOR = Color.WHITE.getRGB();
     private static final int PREVIEW_COLOR = Color.RED.getRGB();
     private static final int FILL_COLOR = new Color(0x58BFA9).getRGB();
+    private static final int CLIP_XMIN = 200;
+    private static final int CLIP_YMIN = 150;
+    private static final int CLIP_XMAX = 500;
+    private static final int CLIP_YMAX = 400;
 
     public Controller(Canvas canvas, Toolbar toolbar) {
         this.canvas = canvas;
         this.toolbar = toolbar;
         this.polygon = new Polygon();
         this.clippingPolygon = new Polygon();
+        this.clippingRectangle = new Polygon();
         this.polygonClipper = new SutherlandHodgmanClipper();
+        this.lineClipper = new CohenSutherlandClipper();
+
+        Point r1 = new Point(CLIP_XMIN, CLIP_YMIN);
+        Point r2 = new Point(CLIP_XMAX, CLIP_YMIN);
+        Point r3 = new Point(CLIP_XMAX, CLIP_YMAX);
+        Point r4 = new Point(CLIP_XMIN, CLIP_YMAX);
+
+        clippingRectangle.addLine(new Line(r1, r2, LINE_COLOR));
+        clippingRectangle.addLine(new Line(r2, r3, LINE_COLOR));
+        clippingRectangle.addLine(new Line(r3, r4, LINE_COLOR));
+        clippingRectangle.addLine(new Line(r4, r1, LINE_COLOR));
+
         Point p1 = new Point(250, 150);
         Point p2 = new Point(450, 150);
         Point p3 = new Point(550, 300);
         Point p4 = new Point(350, 450);
         Point p5 = new Point(150, 300);
+
         clippingPolygon.addLine(new Line(p1, p2, LINE_COLOR));
         clippingPolygon.addLine(new Line(p2, p3, LINE_COLOR));
         clippingPolygon.addLine(new Line(p3, p4, LINE_COLOR));
@@ -101,10 +126,32 @@ public class Controller {
         canvas.getInputMap(WHEN_IN_FOCUSED_WINDOW)
                 .put(getKeyStroke(VK_P, 0), "toggleClipping");
 
+        canvas.getInputMap(WHEN_IN_FOCUSED_WINDOW)
+                .put(getKeyStroke(VK_L, 0), "toggleLineClipping");
+
+        canvas.getActionMap().put("toggleLineClipping", new AbstractAction() {
+            @Override
+            public void actionPerformed(ActionEvent event) {
+                lineClippingMode = !lineClippingMode;
+
+                if (lineClippingMode) {
+                    clippingMode = false;
+                }
+
+                System.out.println("Ořezávání úseček: " +
+                        (lineClippingMode ? "Zapnuto" : "Vypnuto"));
+
+                render();
+            }
+        });
+
         canvas.getActionMap().put("toggleClipping", new AbstractAction() {
             @Override
             public void actionPerformed(ActionEvent event) {
                 clippingMode = !clippingMode;
+                if (clippingMode) {
+                    lineClippingMode = false;
+                }
 
                 System.out.println("Ořezávání polygonu: " +
                         (clippingMode ? "Zapnuto" : "Vypnuto"));
@@ -166,14 +213,33 @@ public class Controller {
             scanlineFiller.fill(polygon, FILL_COLOR);
         }
 
-        if (clippingMode) {
+        if (lineClippingMode) {
+            Polygon clippedLines = new Polygon();
+
+            for (Line line : polygon.getLines()) {
+                Line clippedLine = lineClipper.clip(
+                        line,
+                        CLIP_XMIN, CLIP_YMIN,
+                        CLIP_XMAX, CLIP_YMAX
+                );
+
+                if (clippedLine != null) {
+                    clippedLines.addLine(clippedLine);
+                }
+            }
+
+            polygonRasterizer.rasterize(clippedLines, null);
+
+        } else if (clippingMode) {
             Polygon clippedPolygon = polygonClipper.clip(polygon, clippingPolygon);
             polygonRasterizer.rasterize(clippedPolygon, null);
+
         } else {
             polygonRasterizer.rasterize(polygon, previewLine);
         }
 
         polygonRasterizer.rasterize(clippingPolygon, null);
+        polygonRasterizer.rasterize(clippingRectangle, null);
 
         if (seedFillPoint != null) {
             if (boundaryFillMode) {
@@ -193,6 +259,7 @@ public class Controller {
         boundaryFillMode = false;
         scanlineFillMode = false;
         clippingMode = false;
+        lineClippingMode = false;
         toolbar.setSeedFillMode(false);
         render();
     }
