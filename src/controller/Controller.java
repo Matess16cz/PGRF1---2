@@ -23,6 +23,7 @@ import java.awt.event.MouseEvent;
 import java.awt.event.MouseMotionAdapter;
 
 import javax.swing.AbstractAction;
+import javax.swing.JColorChooser;
 
 import static java.awt.event.KeyEvent.VK_B;
 import static java.awt.event.KeyEvent.VK_C;
@@ -55,9 +56,9 @@ public class Controller {
     private boolean lineClippingMode = false;
 
 
-    private static final int LINE_COLOR = Color.WHITE.getRGB();
+    private int lineColor = Color.WHITE.getRGB();
     private static final int PREVIEW_COLOR = Color.RED.getRGB();
-    private static final int FILL_COLOR = new Color(0x58BFA9).getRGB();
+    private int fillColor = new Color(0x58BFA9).getRGB();
     private static final int CLIP_XMIN = 200;
     private static final int CLIP_YMIN = 150;
     private static final int CLIP_XMAX = 500;
@@ -77,10 +78,10 @@ public class Controller {
         Point r3 = new Point(CLIP_XMAX, CLIP_YMAX);
         Point r4 = new Point(CLIP_XMIN, CLIP_YMAX);
 
-        clippingRectangle.addLine(new Line(r1, r2, LINE_COLOR));
-        clippingRectangle.addLine(new Line(r2, r3, LINE_COLOR));
-        clippingRectangle.addLine(new Line(r3, r4, LINE_COLOR));
-        clippingRectangle.addLine(new Line(r4, r1, LINE_COLOR));
+        clippingRectangle.addLine(new Line(r1, r2, lineColor));
+        clippingRectangle.addLine(new Line(r2, r3, lineColor));
+        clippingRectangle.addLine(new Line(r3, r4, lineColor));
+        clippingRectangle.addLine(new Line(r4, r1, lineColor));
 
         Point p1 = new Point(250, 150);
         Point p2 = new Point(450, 150);
@@ -88,11 +89,11 @@ public class Controller {
         Point p4 = new Point(350, 450);
         Point p5 = new Point(150, 300);
 
-        clippingPolygon.addLine(new Line(p1, p2, LINE_COLOR));
-        clippingPolygon.addLine(new Line(p2, p3, LINE_COLOR));
-        clippingPolygon.addLine(new Line(p3, p4, LINE_COLOR));
-        clippingPolygon.addLine(new Line(p4, p5, LINE_COLOR));
-        clippingPolygon.addLine(new Line(p5, p1, LINE_COLOR));
+        clippingPolygon.addLine(new Line(p1, p2, lineColor));
+        clippingPolygon.addLine(new Line(p2, p3, lineColor));
+        clippingPolygon.addLine(new Line(p3, p4, lineColor));
+        clippingPolygon.addLine(new Line(p4, p5, lineColor));
+        clippingPolygon.addLine(new Line(p5, p1, lineColor));
 
         this.scanlineFiller = new ScanlineFiller(canvas.getRaster());
         this.seedFiller = new RecursiveSeedFiller(canvas.getRaster());
@@ -102,6 +103,33 @@ public class Controller {
     public void init() {
         toolbar.addClearListener(_ -> clearDrawing());
         toolbar.addSeedFillListener(_ -> toggleSeedFillMode());
+
+        toolbar.addFillColorListener(e -> {
+            Color selectedColor = JColorChooser.showDialog(
+                    canvas,
+                    "Vyberte barvu výplně",
+                    new Color(fillColor, true)
+            );
+
+            if (selectedColor != null) {
+                fillColor = selectedColor.getRGB();
+                render();
+            }
+        });
+
+        toolbar.addLineColorListener(e -> {
+            Color selectedColor = JColorChooser.showDialog(
+                    canvas,
+                    "Vyberte barvu obrysu",
+                    new Color(lineColor, true)
+            );
+
+            if (selectedColor != null) {
+                lineColor = selectedColor.getRGB();
+                polygon.changeColor(lineColor);
+                render();
+            }
+        });
         canvas.getInputMap(WHEN_IN_FOCUSED_WINDOW).put(getKeyStroke(VK_C, 0), "clearCanvas");
 
         canvas.getActionMap().put("clearCanvas", new AbstractAction() {
@@ -190,7 +218,7 @@ public class Controller {
                     return;
                 }
 
-                polygon.addLine(new Line(previewLine.getPoint1(), getEndPoint(event), LINE_COLOR));
+                polygon.addLine(new Line(previewLine.getPoint1(), getEndPoint(event), lineColor));
                 previewLine = null;
                 render();
             }
@@ -209,9 +237,6 @@ public class Controller {
 
     private void render() {
         canvas.clear();
-        if (scanlineFillMode) {
-            scanlineFiller.fill(polygon, FILL_COLOR);
-        }
 
         if (lineClippingMode) {
             Polygon clippedLines = new Polygon();
@@ -232,20 +257,32 @@ public class Controller {
 
         } else if (clippingMode) {
             Polygon clippedPolygon = polygonClipper.clip(polygon, clippingPolygon);
+
+            if (scanlineFillMode) {
+                scanlineFiller.fill(clippedPolygon, fillColor);
+            }
+
             polygonRasterizer.rasterize(clippedPolygon, null);
 
         } else {
+            if (scanlineFillMode) {
+                scanlineFiller.fill(polygon, fillColor);
+            }
+
             polygonRasterizer.rasterize(polygon, previewLine);
         }
 
-        polygonRasterizer.rasterize(clippingPolygon, null);
-        polygonRasterizer.rasterize(clippingRectangle, null);
+        if (clippingMode) {
+            polygonRasterizer.rasterize(clippingPolygon, null);
+        } else if (lineClippingMode) {
+            polygonRasterizer.rasterize(clippingRectangle, null);
+        }
 
         if (seedFillPoint != null) {
             if (boundaryFillMode) {
-                seedFiller.fillBoundary(seedFillPoint.getX(), seedFillPoint.getY(), LINE_COLOR, FILL_COLOR);
+                seedFiller.fillBoundary(seedFillPoint.getX(), seedFillPoint.getY(), lineColor, fillColor);
             } else {
-                seedFiller.fill(seedFillPoint.getX(), seedFillPoint.getY(), canvas.getBackgroundColor(), FILL_COLOR);
+                seedFiller.fill(seedFillPoint.getX(), seedFillPoint.getY(), canvas.getBackgroundColor(), fillColor);
             }
         }
         canvas.repaint();
@@ -272,7 +309,7 @@ public class Controller {
     private void fillAt(MouseEvent event) {
         Point seed = getPoint(event);
         Integer seedColor = canvas.getRaster().getPixel(seed.getX(), seed.getY());
-        if (seedFillPoint != null && seedColor != null && seedColor == FILL_COLOR) {
+        if (seedFillPoint != null && seedColor != null && seedColor == fillColor) {
             seedFillPoint = null;
             render();
             return;
@@ -280,9 +317,9 @@ public class Controller {
 
         boolean filled;
         if (boundaryFillMode) {
-            filled = seedFiller.fillBoundary(seed.getX(), seed.getY(), LINE_COLOR, FILL_COLOR);
+            filled = seedFiller.fillBoundary(seed.getX(), seed.getY(), lineColor, fillColor);
         } else {
-            filled = seedFiller.fill(seed.getX(), seed.getY(), canvas.getBackgroundColor(), FILL_COLOR);
+            filled = seedFiller.fill(seed.getX(), seed.getY(), canvas.getBackgroundColor(), fillColor);
         }
         if (filled) {
             seedFillPoint = seed;

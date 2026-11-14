@@ -27,4 +27,22 @@ public final class Polygon {
         lines.add(line);
     }
 
+    public void changeColor(int color) {
+        List<Line> updatedLines = new ArrayList<>();
+
+        for (Line line : getLines()) {
+            updatedLines.add(new Line(
+                    line.getPoint1(),
+                    line.getPoint2(),
+                    color
+            ));
+        }
+
+        clear();
+
+        for (Line line : updatedLines) {
+            addLine(line);
+        }
+    }
+
 }

@@ -15,6 +15,8 @@ public final class Toolbar extends JPanel {
 
     private final Button clearButton;
     private final Button seedFillButton;
+    private final Button fillColorButton;
+    private final Button lineColorButton;
 
     private static final Color DIVIDER = new Color(0x3A3E43);
     private static final Color BACKGROUND = new Color(0x25282C);
@@ -30,8 +32,13 @@ public final class Toolbar extends JPanel {
 
         JPanel fillControls = new JPanel(new FlowLayout(FlowLayout.LEFT, 4, 0));
         seedFillButton = new Button("Seed fill", false);
+        fillColorButton = new Button("Barva výplně", false);
+        lineColorButton = new Button("Barva obrysu", false);
+
         fillControls.setOpaque(false);
         fillControls.add(seedFillButton);
+        fillControls.add(fillColorButton);
+        fillControls.add(lineColorButton);
         add(fillControls, BorderLayout.WEST);
 
         JPanel actions = new JPanel(new FlowLayout(FlowLayout.RIGHT, 4, 0));
@@ -58,6 +65,14 @@ public final class Toolbar extends JPanel {
 
     public void addSeedFillListener(ActionListener listener) {
         seedFillButton.addActionListener(listener);
+    }
+
+    public void addFillColorListener(ActionListener listener) {
+        fillColorButton.addActionListener(listener);
+    }
+
+    public void addLineColorListener(ActionListener listener) {
+        lineColorButton.addActionListener(listener);
     }
 
 }
