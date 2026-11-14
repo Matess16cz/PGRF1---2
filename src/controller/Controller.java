@@ -22,6 +22,7 @@ import javax.swing.AbstractAction;
 
 import static java.awt.event.KeyEvent.VK_B;
 import static java.awt.event.KeyEvent.VK_C;
+import static java.awt.event.KeyEvent.VK_S;
 import static javax.swing.JComponent.WHEN_IN_FOCUSED_WINDOW;
 import static javax.swing.KeyStroke.getKeyStroke;
 
@@ -37,6 +38,7 @@ public class Controller {
     private Point seedFillPoint;
     private boolean seedFillMode;
     private boolean boundaryFillMode = false;
+    private boolean scanlineFillMode = false;
     private final SeedFiller seedFiller;
     private final ScanlineFiller scanlineFiller;
 
@@ -72,6 +74,21 @@ public class Controller {
             public void actionPerformed(ActionEvent event) {
                 boundaryFillMode = !boundaryFillMode;
                 System.out.println("Seed Fill režim: " + (boundaryFillMode ? "Barva hranice" : "Barva pozadí"));
+            }
+        });
+
+        canvas.getInputMap(WHEN_IN_FOCUSED_WINDOW)
+                .put(getKeyStroke(VK_S, 0), "toggleScanlineFill");
+
+        canvas.getActionMap().put("toggleScanlineFill", new AbstractAction() {
+            @Override
+            public void actionPerformed(ActionEvent event) {
+                scanlineFillMode = !scanlineFillMode;
+
+                System.out.println("Scan-line Fill: " +
+                        (scanlineFillMode ? "Zapnuto" : "Vypnuto"));
+
+                render();
             }
         });
 
@@ -112,7 +129,10 @@ public class Controller {
 
     private void render() {
         canvas.clear();
-        //scanlineFiller.fill(polygon, FILL_COLOR);
+        if (scanlineFillMode) {
+            scanlineFiller.fill(polygon, FILL_COLOR);
+        }
+
         polygonRasterizer.rasterize(polygon, previewLine);
         if (seedFillPoint != null) {
             if (boundaryFillMode) {
@@ -130,6 +150,7 @@ public class Controller {
         seedFillPoint = null;
         seedFillMode = false;
         boundaryFillMode = false;
+        scanlineFillMode = false;
         toolbar.setSeedFillMode(false);
         render();
     }
