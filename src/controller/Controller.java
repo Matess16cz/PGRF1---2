@@ -20,6 +20,7 @@ import java.awt.event.MouseMotionAdapter;
 
 import javax.swing.AbstractAction;
 
+import static java.awt.event.KeyEvent.VK_B;
 import static java.awt.event.KeyEvent.VK_C;
 import static javax.swing.JComponent.WHEN_IN_FOCUSED_WINDOW;
 import static javax.swing.KeyStroke.getKeyStroke;
@@ -35,6 +36,7 @@ public class Controller {
 
     private Point seedFillPoint;
     private boolean seedFillMode;
+    private boolean boundaryFillMode = false;
     private final SeedFiller seedFiller;
     private final ScanlineFiller scanlineFiller;
 
@@ -56,10 +58,20 @@ public class Controller {
         toolbar.addClearListener(_ -> clearDrawing());
         toolbar.addSeedFillListener(_ -> toggleSeedFillMode());
         canvas.getInputMap(WHEN_IN_FOCUSED_WINDOW).put(getKeyStroke(VK_C, 0), "clearCanvas");
+
         canvas.getActionMap().put("clearCanvas", new AbstractAction() {
             @Override
             public void actionPerformed(ActionEvent event) {
                 clearDrawing();
+            }
+        });
+
+        canvas.getInputMap(WHEN_IN_FOCUSED_WINDOW).put(getKeyStroke(VK_B, 0), "toogleBoundaryFill");
+        canvas.getActionMap().put("toogleBoundaryFill", new AbstractAction() {
+            @Override
+            public void actionPerformed(ActionEvent event) {
+                boundaryFillMode = !boundaryFillMode;
+                System.out.println("Seed Fill režim: " + (boundaryFillMode ? "Barva hranice" : "Barva pozadí"));
             }
         });
 
@@ -100,10 +112,14 @@ public class Controller {
 
     private void render() {
         canvas.clear();
-        scanlineFiller.fill(polygon, FILL_COLOR);
+        //scanlineFiller.fill(polygon, FILL_COLOR);
         polygonRasterizer.rasterize(polygon, previewLine);
         if (seedFillPoint != null) {
-            seedFiller.fill(seedFillPoint.getX(), seedFillPoint.getY(), canvas.getBackgroundColor(), FILL_COLOR);
+            if (boundaryFillMode) {
+                seedFiller.fillBoundary(seedFillPoint.getX(), seedFillPoint.getY(), LINE_COLOR, FILL_COLOR);
+            } else {
+                seedFiller.fill(seedFillPoint.getX(), seedFillPoint.getY(), canvas.getBackgroundColor(), FILL_COLOR);
+            }
         }
         canvas.repaint();
     }
@@ -113,6 +129,7 @@ public class Controller {
         previewLine = null;
         seedFillPoint = null;
         seedFillMode = false;
+        boundaryFillMode = false;
         toolbar.setSeedFillMode(false);
         render();
     }
@@ -131,7 +148,12 @@ public class Controller {
             return;
         }
 
-        boolean filled = seedFiller.fill(seed.getX(), seed.getY(), canvas.getBackgroundColor(), FILL_COLOR);
+        boolean filled;
+        if (boundaryFillMode) {
+            filled = seedFiller.fillBoundary(seed.getX(), seed.getY(), LINE_COLOR, FILL_COLOR);
+        } else {
+            filled = seedFiller.fill(seed.getX(), seed.getY(), canvas.getBackgroundColor(), FILL_COLOR);
+        }
         if (filled) {
             seedFillPoint = seed;
             render();
